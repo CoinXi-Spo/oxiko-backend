@@ -20,7 +20,7 @@ def format_balance(balance_wei, decimals=18):
 
 async def start_command(update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /start command"""
-    game_url = "https://gameapp-ncgwbf.manus.space"
+    game_url = "http://localhost:5174"
     
     keyboard = [[InlineKeyboardButton("Open Game", web_app=WebAppInfo(url=game_url))]]
     reply_markup = InlineKeyboardMarkup(keyboard)

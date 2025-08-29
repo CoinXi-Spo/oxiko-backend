@@ -1,15 +1,50 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from pymongo import MongoClient
+import os
+from dotenv import load_dotenv
+
+# تحميل متغيرات البيئة
+load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
 
-# تخزين مؤقت للّاعبين (في RAM)
-players = {}
+# الاتصال بقاعدة البيانات MongoDB
+mongo_uri = os.getenv("MONGO_URI")
+client = MongoClient(mongo_uri)
+db = client["game_db"]        # اسم قاعدة البيانات
+players_collection = db["players"]       # اسم المجموعة
 
 @app.route("/")
 def index():
-    return "Backend is running!"
+    return {"status": "MongoDB connected!", "message": "Backend is running!"}
+
+# إضافة لاعب جديد
+@app.route("/add_player", methods=["POST"])
+def add_player():
+    try:
+        data = request.json
+        player = {
+            "username": data["username"],
+            "score": data.get("score", 0),
+            "user_id": data.get("user_id", data["username"])
+        }
+        players_collection.insert_one(player)
+        # إزالة _id من الاستجابة
+        player.pop("_id", None)
+        return jsonify({"message": "Player added!", "player": player})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# عرض كل اللاعبين
+@app.route("/players", methods=["GET"])
+def get_all_players():
+    try:
+        all_players = list(players_collection.find({}, {"_id": 0}))
+        return jsonify(all_players)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # ✅ 1) Route لتأكيد صلاحية initData (Telegram WebApp)
 @app.route("/api/validate_init_data", methods=["POST"])
@@ -94,14 +129,23 @@ def save_game_data():
         if not user_id:
             return jsonify({"ok": False, "message": "Missing user_id"}), 400
 
-        # حفظ أو تحديث بيانات اللاعب
-        players[user_id] = {
+        # إعداد بيانات اللاعب
+        player_data = {
+            "user_id": user_id,
             "username": data.get("username", "مجهول"),
             "level": data.get("level", 1),
             "health": data.get("health", 100),
             "energy": data.get("energy", 100),
         }
-        return jsonify({"ok": True, "message": "Player data saved", "player": players[user_id]})
+        
+        # حفظ أو تحديث بيانات اللاعب في MongoDB
+        players_collection.update_one(
+            {"user_id": user_id},
+            {"$set": player_data},
+            upsert=True
+        )
+        
+        return jsonify({"ok": True, "message": "Player data saved", "player": player_data})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
@@ -110,28 +154,50 @@ def save_game_data():
 @app.route("/api/users", methods=["GET"])
 def get_users():
     try:
-        return jsonify({"ok": True, "players": players})
+        # جلب كل اللاعبين من MongoDB
+        all_players = list(players_collection.find({}, {"_id": 0}))
+        return jsonify({"ok": True, "players": all_players})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
-
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
-
-
 
 
 @app.route("/api/game/save", methods=["POST"])
 def save_game():
     try:
         data = request.get_json() or {}
-        # TODO: خزّن البيانات بقاعدة البيانات بدل الذاكرة المؤقتة
         user_id = str((data.get("user") or {}).get("id") or data.get("user_id"))
         if not user_id:
             return jsonify({"ok": False, "error": "missing user_id"}), 400
-        players[user_id] = data
+        
+        # حفظ بيانات اللعبة في MongoDB
+        game_data = {
+            "user_id": user_id,
+            "game_data": data
+        }
+        
+        players_collection.update_one(
+            {"user_id": user_id},
+            {"$set": game_data},
+            upsert=True
+        )
+        
         return jsonify({"ok": True})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
+
+
+# Route لتقديم الفرونت إند
+@app.route("/game")
+def serve_game():
+    """Route لتوجيه المستخدمين إلى اللعبة"""
+    return jsonify({
+        "message": "Game frontend should be served here",
+        "frontend_url": "http://localhost:3000",
+        "backend_url": "http://localhost:5001"
+    })
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5002, debug=True)
 
 
