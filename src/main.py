@@ -27,12 +27,15 @@ def validate_init_data():
     try:
         payload = request.get_json(silent=True) or {}
         init_data = payload.get("init_data", "")
+        print(f"Received init_data: {init_data}")
         if not init_data:
+            print("Error: Missing init_data")
             return jsonify({"ok": False, "error": "missing init_data"}), 400
 
         bot_token = os.getenv("BOT_TOKEN") or os.getenv("TELEGRAM_BOT_TOKEN")
+        print(f"BOT_TOKEN: {bot_token}")
         if not bot_token:
-            return jsonify({"ok": False, "error": "missing BOT_TOKEN env"}), 500
+            print("Error: Missing BOT_TOKEN env")
 
         # نفك الـ querystring القادمة من WebApp.initData
         # مثال: query_id=...&user={"id":...}&auth_date=...&hash=...
@@ -44,7 +47,9 @@ def validate_init_data():
             parts[k] = v
 
         received_hash = parts.pop("hash", None)
+        print(f"Received hash: {received_hash}")
         if not received_hash:
+            print("Error: Hash not found")
             return jsonify({"ok": False, "error": "hash_not_found"}), 400
 
         # تطبيع user (لازم JSON دون مسافات)
@@ -61,13 +66,15 @@ def validate_init_data():
 
         # data_check_string
         data_check_string = "\n".join(f"{k}={parts[k]}" for k in sorted(parts.keys()))
+        print(f"Data check string: {data_check_string}")
 
         # secret_key = sha256(bot_token)
         secret_key = hashlib.sha256(bot_token.encode("utf-8")).digest()
         calc_hash = hmac.new(secret_key, data_check_string.encode("utf-8"), hashlib.sha256).hexdigest()
+        print(f"Calculated hash: {calc_hash}")
 
         is_valid = hmac.compare_digest(calc_hash, received_hash)
-
+        print(f"Is valid: {is_valid}")
         return jsonify({
             "ok": True,
             "valid": is_valid,
