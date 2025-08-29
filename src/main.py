@@ -1,8 +1,5 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from dotenv import load_dotenv
-
-load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
@@ -25,6 +22,8 @@ def validate_init_data():
     - hash = HMAC_SHA256(secret_key, data_check_string) مكتوبة hex
     """
     import os, json, hmac, hashlib
+    from dotenv import load_dotenv
+    load_dotenv()
     try:
         payload = request.get_json(silent=True) or {}
         init_data = payload.get("init_data", "")
