@@ -8,5 +8,8 @@ nohup: ignoring input
 [33mPress CTRL+C to quit[0m
  * Restarting with stat
  * Debugger is active!
- * Debugger PIN: 829-739-633
-127.0.0.1 - - [29/Aug/2025 10:59:53] "GET / HTTP/1.1" 200 -
+ * Debugger PIN: 961-535-933
+ * Detected change in '/home/ubuntu/projects/flask_backend_updated/flask_backend_updated/src/main.py', reloading
+ * Restarting with stat
+ * Debugger is active!
+ * Debugger PIN: 961-535-933
