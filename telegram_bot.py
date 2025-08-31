@@ -1,9 +1,15 @@
 import os
 import sqlite3
-import asyncio
-from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo, Update
+import logging
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo, Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 from telegram.error import TelegramError
+
+# ---------- Logging ----------
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s"
+)
 
 # Database path
 DB_PATH = os.path.join(os.path.dirname(__file__), 'src', 'database', 'game.db')
@@ -22,6 +28,8 @@ def format_balance(balance_wei, decimals=18):
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /start command"""
+    logging.info(f"/start used by {update.effective_user.id} ({update.effective_user.username})")
+
     game_url = "https://clinquant-sopapillas-19b989.netlify.app/"
     keyboard = [[InlineKeyboardButton("Open Game", web_app=WebAppInfo(url=game_url))]]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -35,6 +43,8 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /help command"""
+    logging.info(f"/help used by {update.effective_user.id} ({update.effective_user.username})")
+
     help_text = """Available commands:
 /balance <username> - Get player balance
 /credit <player_id> <token> <amount> - Credit player (admin only)
@@ -47,6 +57,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def balance_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /balance command"""
+    logging.info(f"/balance by {update.effective_user.id} args={context.args}")
+
     if len(context.args) != 1:
         await update.message.reply_text("Usage: /balance <username>")
         return
@@ -71,10 +83,13 @@ async def balance_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(balance_text)
 
     except Exception as e:
+        logging.error(f"Error in /balance: {e}")
         await update.message.reply_text(f"Error: {str(e)}")
 
 async def credit_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /credit command (admin only)"""
+    logging.info(f"/credit by {update.effective_user.id} args={context.args}")
+
     allowed_admins = os.environ.get('TELEGRAM_ALLOWED_ADMINS', '').split(',')
     if str(update.effective_user.id) not in allowed_admins:
         await update.message.reply_text("You are not authorized to use this command.")
@@ -116,10 +131,13 @@ async def credit_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except ValueError:
         await update.message.reply_text("Invalid player_id or amount")
     except Exception as e:
+        logging.error(f"Error in /credit: {e}")
         await update.message.reply_text(f"Error: {str(e)}")
 
 async def debit_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /debit command (admin only)"""
+    logging.info(f"/debit by {update.effective_user.id} args={context.args}")
+
     allowed_admins = os.environ.get('TELEGRAM_ALLOWED_ADMINS', '').split(',')
     if str(update.effective_user.id) not in allowed_admins:
         await update.message.reply_text("You are not authorized to use this command.")
@@ -168,6 +186,7 @@ async def debit_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except ValueError:
         await update.message.reply_text("Invalid player_id or amount")
     except Exception as e:
+        logging.error(f"Error in /debit: {e}")
         await update.message.reply_text(f"Error: {str(e)}")
 
 # ---------- Main ----------
@@ -176,7 +195,7 @@ def main():
     bot_token = os.environ.get('TELEGRAM_BOT_TOKEN')
 
     if not bot_token:
-        print("Telegram bot token not set. Skipping Telegram bot initialization.")
+        logging.error("❌ Telegram bot token not set. Skipping Telegram bot initialization.")
         return
 
     application = Application.builder().token(bot_token).build()
@@ -187,7 +206,7 @@ def main():
     application.add_handler(CommandHandler("credit", credit_command))
     application.add_handler(CommandHandler("debit", debit_command))
 
-    print("Telegram bot started.")
+    logging.info("🤖 Telegram bot started.")
     application.run_polling()
 
 if __name__ == '__main__':
